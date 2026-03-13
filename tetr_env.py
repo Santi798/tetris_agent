@@ -3,7 +3,7 @@ from utilities import SetupWindow, TetrBrowser, AreaSearcher, PieceDetector
 
 class Env():
     def __init__(self):
-        self.create_page()
+        # self.create_page()
         self.wait_for_setup()
         self.find_search_area()
         self.index = 0
