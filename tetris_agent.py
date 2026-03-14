@@ -1,5 +1,19 @@
 """
-        
+TetrisPlayer: Agente que juega TETR.IO automáticamente.
+
+Este agente mantiene internamente el estado del tablero y las figuras 
+pendientes, calcula futuros posibles para la figura actual (y la opción 
+de hold), evalúa su “costo” en función de la altura mínima alcanzada 
+y las filas eliminadas, y devuelve la secuencia de acciones óptima para 
+colocar la figura en la mejor posición posible. 
+
+Incluye manejo de:
+- Rotación y flips de las piezas.
+- Colisiones y colocación de piezas en el tablero.
+- Eliminación de filas completas y cálculo de alturas por columna.
+- Estrategia de hold para almacenar una pieza temporalmente.
+- Estrategia de minimización de altura añadida.
+- Estrategia de llenado de filas bajas.
 """
 
 import numpy as np
@@ -8,29 +22,52 @@ import numpy as np
 
 class TetrisPlayer:
     """
-        
+    Agente que juega Tetris (para la página TETR.IO).
     """
-    # Agente que juega Tetris (TETR.IO)
 
-    actions = ('<','>','r','f','_','c') # move left, move right, rotate (right), flip, space (all down), hold
+    SUPER_COST = 100
+
     LEFT = 0
     RIGHT = 1
     ROTATE = 2
     FLIP = 3
     DROP = 4
     HOLD = 5
+
+    actions = ('<','>','r','f','_','c')
+
+
+    def __init__(self, cost_strategy = 'min_height'):
+        """
+        Constructor del agente con los atributos que requiere para llevar el
+        estado interno.
+        """
+        cost_strategies = {
+            'min_height': self._cost_min_height,
+            'fill_rows': self._cost_fill_rows
+        }
+        
+        self._current_shape = None                          # Por ejemplo: np.array([])
+        self._next_shapes = []                              # Por ejemplo: [np.array([]) for _ in 5]
+        self._held_shape = None                             # Por ejemplo: np.array([])
+        self._state = np.zeros((20,10), dtype=np.int16)     # Tablero
+        self._height = 0                                    # Altura mínima en las columnas
+        self._cost = cost_strategies[cost_strategy]         # Método de cálculo de costo
+
+
+    def _square(self, shape):
+        """
+        Devuelve True si la figura es el cuadrado.
+        """
+        return shape.shape[0] == shape.shape[1]
     
 
-    def __init__(self):
+    def _line(self, shape):
         """
-        
+        Devuelve True si la figura es la línea.
         """
-        self._current_shape = None  # np.array([])
-        self._next_shapes = []      # [np.array([]) for _ in 5]
-        self._held_shape = None     # np.array([])
-        self._state = np.zeros((20,10), dtype=np.int16)
-        self._height = 0    # Altura mínima en las columnas
-
+        return 1 in shape.shape
+    
 
     def _rotate(self, shape):
         """
@@ -42,9 +79,12 @@ class TetrisPlayer:
 
     def _collision(self, shape, row, col):
         """
-        Devuelve True si la pieza colisiona con el tablero o bloques existentes.
+        Devuelve:
+        - True si la figura colisiona con el tablero o bloques existentes
+        - False si se puede colocar, y además devuelve una copia del estado con la figura puesta
         """
         h, w = shape.shape
+        new_state = self._state.copy()  # Copia para colocar la figura
 
         for r in range(h):
             for c in range(w):
@@ -52,57 +92,179 @@ class TetrisPlayer:
                 if shape[r, c] == 0:
                     continue
 
-                board_r = row + r
-                board_c = col + c
+                state_r = row + r
+                state_c = col + c
 
-                # Fuera del tablero
-                if board_c < 0 or board_c >= 10 or board_r < 0:
-                    return (True, None)
+                # Fuera del tablero.
+                if state_c < 0 or state_c >= 10 or state_r < 0 or state_r >= self._state.shape[0]:
+                    return True, None
 
-                # Colisión con bloque existente
-                if self.state[board_r, board_c] != 0:
-                    return (True, None)
+                # Colisión con bloque existente.
+                if new_state[state_r, state_c] != 0:
+                    return True, None
 
-        return (False,) #, state (ficha puesta en el lugar)
+                # Colocar bloque en copia del tablero.
+                new_state[state_r, state_c] = shape[r, c]
 
+        return False, new_state
+
+
+    def _kill_rows(self, state, max_height):
+        """
+        Elimina filas completas hasta max_height y calcula la nueva altura mínima
+        entre todas las columnas.
+        """
+        killed_rows = 0
+        row = 0
+
+        while row < max_height:
+            # Fila completa.
+            if np.all(state[row] != 0):
+                killed_rows += 1
+
+                # Bajar todo lo superior.
+                state[row:-1] = state[row+1:]
+                state[-1] = 0
+
+                max_height -= 1
+
+            else:
+                row += 1
+
+        # Índice de la celda ocupada más alta por columna.
+        heights = np.where(
+            state[:max_height] != 0,
+            np.arange(max_height)[:, None],
+            -1
+        ).max(axis=0)
+
+        # Elegir la altura menor.
+        new_min_height = heights.min()
+
+        return state, new_min_height, killed_rows
     
-    def _cost(self, state, height)
+
+    def _cost_min_height(self, state, max_height):
+        """
+        Cálcula el costo del futuro dado, en función de la altura añadida
+        correspondiente a la figura operada, descontando filas removidas.
+        """
+        state, new_min_height, killed_rows = self._kill_rows(state, max_height)
+        return state, new_min_height, max_height - killed_rows
+    
+
+    def _cost_fill_rows(self, state, max_height):   ########## TODO: todo (sin implementar aún jaja) ##########
+        """
+        Cálcula el costo del futuro dado, en función del tamaño de las
+        filas que coinciden con la posición del agente.
+        """
+        state, new_min_height, killed_rows = self._kill_rows(state, max_height)
+        # for...
+        cost = None
+        return state, new_min_height, cost
+
+
+    def _calculate_actions(self, shape, column, rotation):
+        """
+        Cálcula la lista de acciones a realizar para llegar al estado objetivo.
+        """
+        actions = []
+
+        # Rotaciones.
+        if rotation == 1 or rotation == 3:
+            actions += [self.actions[self.ROTATE]]
+
+        if rotation == 2 or rotation == 3:
+            actions += [self.actions[self.FLIP]]
+        
+        # Desplazamientos.
+        if rotation == 0 or rotation == 2:
+            actions += (
+                [self.actions[self.LEFT] for _ in (
+                range(4 - column) if self._square(shape)
+                else range(3 - column))] +
+                [self.actions[self.RIGHT] for _ in (
+                range(3 - (10 - shape.shape[1] - column)) if self._h_line(shape)
+                else range(4 - (10 - shape.shape[1] - column)))]
+            )
+
+        elif rotation == 1:
+            actions += (
+                [self.actions[self.LEFT] for _ in (
+                range(5 - column) if self._line(shape)
+                else range(4 - column))] +
+                [self.actions[self.RIGHT] for _ in (
+                range(4 - (10 - shape.shape[1] - column)))]
+            )
+
+        elif rotation == 3:
+            actions += (
+                [self.actions[self.LEFT] for _ in (
+                range(4 - column) if self._line(shape) or self._square(shape)
+                else range(3 - column))] +
+                [self.actions[self.RIGHT] for _ in (
+                range(4 - (10 - shape.shape[1] - column)) if self._square(shape)
+                else range(5 - (10 - shape.shape[1] - column)))]
+            )
+        
+        return actions + [self.actions[self.DROP]]
 
     def _calculate_best_future(self, shape):
         """
-        
+        Método que calcula el estado destino, la lista de acciones para llegar a ella 
+        y algún tipo de costo asociado a ese futuro.
         """
-        # Método que calcula el estado destino, la lista de acciones para llegar a ella 
-        # y algún tipo de costo 
-        # La idea inicial es que lo haga llevando la figura a la altura mínima y probando
-        # para todas sus rotaciones y desplazamientos (cada columna) donde encaja. Se elige
-        # la opción de menor costo de las canidatas y, si no hay, se prueba con la siguiente altura...
-        cost = 
+        state = self._state
+        min_height = self._height
+        actions = []
+        cost = self.SUPER_COST
+
         found = False
         height = self._height
+
+        # Recorrido por alturas si no hay candidatos.
         while height < 22 and not found:
             column = 0
-            while column < 10 and not found:
+
+            # Prueba en todas las columnas.
+            while column < 10:
                 shape = shape.copy()
                 rotation = 0
+
+                # Prueba con todas las rotaciones.
                 while rotation < 4:
-                    collision, state = self._collision(shape, height, column)
+                    collision, new_state = self._collision(shape, height, column)
+
                     if not collision:
-                        new_cost = _cost(hei)
+                        new_state, new_min_heigt, new_cost = (
+                            self._cost(state, height + shape.shape[0])
+                        )
+                        
+                        # Se mantiene el futuro de menor costo.
+                        if new_cost < cost:
+                            found = True
 
-                
-        
+                            state = new_state
+                            min_height = new_min_heigt
+                            actions = self._calculate_actions(shape, column, rotation)
+                            cost = new_cost
 
-        # Return new_state, new_height, new_actions, cost
-        pass
+                    shape = self._rotate(shape)
+                    rotation += 1
+
+                column += 1
+
+            height += 1
+
+        return state, min_height, actions, cost
 
 
     def main_compute(self, perception):
         """
-        
+        Método principal que recibe una lista de figuras nuevas a considerar y devuelve 
+        las acciones para llegar al siguiente estado ideal, llevando el estado interno,
+        ignorando el caso inicial donde el espacio de hold está vacío.
         """
-        # Método que recibe una lista de figuras nuevas a considerar y devuelve las acciones para llegar
-        # al siguiente estado ideal, llevando el estado interno, ignorando el caso inicial self._held_shape = None
         self._next_shapes += perception
         self._current_shape = self._next_shapes.pop(0)
 
@@ -127,14 +289,14 @@ class TetrisPlayer:
 
     def compute(self, perception):
         """
-        
+        Método principal que recibe una lista de figuras nuevas a considerar y devuelve 
+        las acciones para llegar al siguiente estado ideal, llevando el estado interno.
         """
-        # Método que recibe una lista de figuras nuevas a considerar y devuelve las acciones para llegar
-        # al siguiente estado ideal, llevando el estado interno
         self._next_shapes += perception     # El ambiente (sensor-actuador) pasaría inicialmente las 5 
                                             # primeras figuras, luego, solo la última de las 5 que vienen 
                                             # (la nueva), a excepción de tras el primer hold, donde pasa 
                                             # las últimas 2 de las 5 que vienen.
+                                            # Las figuras percibidas se reciben invertidas.
         self._current_shape = self._next_shapes.pop(0)
 
         # Obtención de la siguiente figura si se hiciera hold.
@@ -165,5 +327,4 @@ class TetrisPlayer:
         
         self._held_shape = self._current_shape
         return [self.actions[self.HOLD]] + hold_actions
-
 
