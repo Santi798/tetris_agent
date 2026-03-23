@@ -4,3 +4,4 @@ from .area_searcher import AreaSearcher
 from .piece_detector import PieceDetector
 from .pieces import Pieces
 from .actuator import TetrActuator
+from .keys_controller import KeysController

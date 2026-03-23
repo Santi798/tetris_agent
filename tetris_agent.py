@@ -17,6 +17,7 @@ Incluye manejo de:
 """
 
 from numpy import zeros, rot90, all, where, arange, int16
+from numpy import any as np_any
 
 
 class TetrisPlayer:
@@ -50,7 +51,7 @@ class TetrisPlayer:
         self._current_shape = None                          # Por ejemplo: array([])
         self._next_shapes = []                              # Por ejemplo: [array([]) for _ in 5]
         self._held_shape = None                             # Por ejemplo: array([])
-        self._state = zeros((20,10), dtype=int16)     # Tablero
+        self._state = zeros((22,10), dtype=int16)           # Tablero
         self._height = 0                                    # Altura mínima en las columnas
 
 
@@ -65,7 +66,7 @@ class TetrisPlayer:
         """
         Devuelve True si la figura es la línea.
         """
-        return 1 in shape.shape
+        return shape.shape[0] == 1 or shape.shape[1] == 1
     
 
     def _rotate(self, shape):
@@ -73,7 +74,7 @@ class TetrisPlayer:
         Rota la figura pasada como argumento (matriz)
         90 grados en sentido horario.
         """
-        return rot90(shape, -1)
+        return rot90(shape, 1)
 
 
     def _collision(self, shape, row, col):
@@ -95,11 +96,15 @@ class TetrisPlayer:
                 state_c = col + c
 
                 # Fuera del tablero.
-                if state_c < 0 or state_c >= 10 or state_r < 0 or state_r >= self._state.shape[0]:
+                if state_c < 0 or state_c >= self._state.shape[1] or state_r < 0 or state_r >= self._state.shape[0]:
                     return True, None
 
                 # Colisión con bloque existente.
                 if new_state[state_r, state_c] != 0:
+                    return True, None
+
+                # Obstáculos encima para hacer drop.
+                if np_any(self._state[state_r + 1 :, state_c] != 0):
                     return True, None
 
                 # Colocar bloque en copia del tablero.
@@ -171,6 +176,7 @@ class TetrisPlayer:
         Cálcula la lista de acciones a realizar para llegar al estado objetivo.
         """
         actions = []
+        dist2right = self._state.shape[1] - shape.shape[1] - column
 
         # Rotaciones.
         if rotation == 1 or rotation == 3:
@@ -186,8 +192,8 @@ class TetrisPlayer:
                 range(4 - column) if self._square(shape)
                 else range(3 - column))] +
                 [self.actions[self.RIGHT] for _ in (
-                range(3 - (10 - shape.shape[1] - column)) if self._line(shape)
-                else range(4 - (10 - shape.shape[1] - column)))]
+                range(3 - dist2right) if self._line(shape)
+                else range(4 - dist2right))]
             )
 
         elif rotation == 1:
@@ -196,7 +202,7 @@ class TetrisPlayer:
                 range(5 - column) if self._line(shape)
                 else range(4 - column))] +
                 [self.actions[self.RIGHT] for _ in (
-                range(4 - (10 - shape.shape[1] - column)))]
+                range(4 - dist2right))]
             )
 
         elif rotation == 3:
@@ -205,10 +211,10 @@ class TetrisPlayer:
                 range(4 - column) if self._line(shape) or self._square(shape)
                 else range(3 - column))] +
                 [self.actions[self.RIGHT] for _ in (
-                range(4 - (10 - shape.shape[1] - column)) if self._square(shape)
-                else range(5 - (10 - shape.shape[1] - column)))]
+                range(4 - dist2right) if self._square(shape)
+                else range(5 - dist2right))]
             )
-        
+
         return actions + [self.actions[self.DROP]]
 
     def _calculate_best_future(self, shape):
@@ -222,14 +228,14 @@ class TetrisPlayer:
         cost = self.SUPER_COST
 
         found = False
-        height = self._height
+        height = 0      # height = self._height TODO:
 
         # Recorrido por alturas si no hay candidatos.
-        while height < 22 and not found:
+        while height < self._state.shape[0] and not found:
             column = 0
 
             # Prueba en todas las columnas.
-            while column < 10:
+            while column < self._state.shape[1]:
                 shape = shape.copy()
                 rotation = 0
 
@@ -267,7 +273,7 @@ class TetrisPlayer:
         las acciones para llegar al siguiente estado ideal, llevando el estado interno,
         ignorando el caso inicial donde el espacio de hold está vacío.
         """
-        if any(x is None for x in perception):
+        if not perception or any(x is None for x in perception):
             return []
         
         self._next_shapes += perception
@@ -297,7 +303,7 @@ class TetrisPlayer:
         Método principal que recibe una lista de figuras nuevas a considerar y devuelve 
         las acciones para llegar al siguiente estado ideal, llevando el estado interno.
         """
-        if any(x is None for x in perception):
+        if not perception or any(x is None for x in perception):
             return []
         
         self._next_shapes += perception     # El ambiente (sensor-actuador) pasaría inicialmente las 5 
@@ -335,3 +341,18 @@ class TetrisPlayer:
         
         self._held_shape = self._current_shape
         return [self.actions[self.HOLD]] + hold_actions
+
+
+
+if __name__ == "__main__":
+    from numpy import array
+    agent = TetrisPlayer()
+    figs = [array([[1,1,1],[0,0,1]], dtype=int16),
+            array([[1,1,1],[0,0,1]], dtype=int16),
+            array([[1,1,1],[0,0,1]], dtype=int16),
+            array([[1,1,1],[0,0,1]], dtype=int16),
+            array([[1,1,1],[0,0,1]], dtype=int16)]
+    for _ in range(8):
+        print(agent.compute(figs))
+        figs.append(array([[1,1,1],[0,0,1]], dtype=int16))
+        print(agent._state)

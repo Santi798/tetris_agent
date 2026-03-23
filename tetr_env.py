@@ -1,5 +1,5 @@
 from utilities import SetupWindow, TetrBrowser, AreaSearcher, PieceDetector, TetrActuator
-
+from time import sleep
 
 class Env():
     def __init__(self):
@@ -36,10 +36,12 @@ class Env():
     
     def _main_act_and_sense(self, actions):     # Siempre devuelve el último.
         self._execute(actions)
+        sleep(1)
         return self._get_perception()[-1:]
 
     def act_and_sense(self, actions, last_n=1):
         flag = self._execute(actions)
+        sleep(1)
         if not flag:
             return self._get_perception()[-last_n:]
         if flag == self.actuator.FIRST_HOLD_FLAG:

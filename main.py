@@ -20,8 +20,8 @@ def main():
     while act:  # len(act) > 0
         percept = env.act_and_sense(act)
         act = agent.compute(percept)
+        print(agent._state)     ##### DEBUG #####
     print(f"¡El agente {agent.__class__.__name__} se ha detenido!")
-    print(agent._state)     ##### DEBUG #####
 
     ### TODO: Tomar captura del score final ###
 
