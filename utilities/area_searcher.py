@@ -4,6 +4,9 @@ import cv2
 
 
 class AreaSearcher:
+
+    WHITE = 200
+
     def __init__(self):
         self.corner = None
         self._screen_width = None
@@ -17,6 +20,10 @@ class AreaSearcher:
             self._screen_height = screenshot.shape[0]
             return screenshot
 
+    def _is_white(self, pixel, threshold=WHITE):
+        r, g, b = pixel[:3]
+        return r > threshold and g > threshold and b > threshold
+
     def get_corner(self):
         if self.corner is not None:
             return self.corner
@@ -26,24 +33,19 @@ class AreaSearcher:
         height, width = screenshot.shape[:2]
         center_x = width // 2
         center_y = height // 2
-
-        WHITE = 200
-
+        
         # Buscar hacia la derecha desde el centro hasta encontrar primer blanco
         search_x = None
         for x in range(center_x, width):
-            r, g, b = screenshot[center_y, x, :3]
-            if r > WHITE and g > WHITE and b > WHITE:
+            if self._is_white(screenshot[center_y, x]):
                 # Saltar esta línea blanca hasta que deje de ser blanca
-                while x < width:
-                    r, g, b = screenshot[center_y, x, :3]
-                    if not (r > WHITE and g > WHITE and b > WHITE):
+                for x1 in range(x, width):
+                    if not self._is_white(screenshot[center_y, x1]):
                         break
-                    x += 1
+                
                 # Desde aquí buscar el siguiente blanco
-                for x2 in range(x, width):
-                    r, g, b = screenshot[center_y, x2, :3]
-                    if r > WHITE and g > WHITE and b > WHITE:
+                for x2 in range(x1, width):
+                    if self._is_white(screenshot[center_y, x2]):
                         search_x = x2
                         break
                 break
@@ -53,10 +55,9 @@ class AreaSearcher:
 
         # Buscar desde arriba hacia abajo sobre search_x hasta encontrar píxel blanco
         search_y = None
-        for y in range(0, height):
-            r, g, b = screenshot[y, search_x, :3]
-            if r > WHITE and g > WHITE and b > WHITE:
-                search_y = y
+        for y in range(center_y):
+            if self._is_white(screenshot[y, search_x]):
+                search_y = y + 1
                 break
 
         if search_y is None:
@@ -69,7 +70,6 @@ class AreaSearcher:
         if self.box_dim is not None:
             return self.box_dim
 
-        WHITE = 200
         screenshot = self.take_screenshot()
 
         if self.corner is None:
@@ -82,10 +82,9 @@ class AreaSearcher:
         # Bajar desde la esquina por el borde izquierdo hasta que deje de ser blanco
         box_height = None
         for y in range(y_cr, height):
-            r, g, b = screenshot[y, x_cr, :3]
-            if not (r > WHITE and g > WHITE and b > WHITE):
-                box_height = y - y_cr  # altura en píxeles
+            if not self._is_white(screenshot[y, x_cr]):
                 break
+        box_height = y - y_cr
 
         if box_height is None:
             raise RuntimeError("No se encontró el borde inferior del recuadro")
@@ -93,10 +92,9 @@ class AreaSearcher:
         # Ir hacia la derecha desde la esquina por el borde superior hasta que deje de ser blanco
         box_width = None
         for x in range(x_cr, width):
-            r, g, b = screenshot[y_cr, x, :3]
-            if not (r > WHITE and g > WHITE and b > WHITE):
-                box_width = x - x_cr  # ancho en píxeles
+            if not self._is_white(screenshot[y_cr, x]):
                 break
+        box_width = x - x_cr
 
         if box_width is None:
             raise RuntimeError("No se encontró el borde derecho del recuadro")

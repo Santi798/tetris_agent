@@ -16,8 +16,7 @@ Incluye manejo de:
 - Estrategia de llenado de filas bajas.
 """
 
-import numpy as np
-
+from numpy import zeros, rot90, all, where, arange, int16
 
 
 class TetrisPlayer:
@@ -46,13 +45,13 @@ class TetrisPlayer:
             'min_height': self._cost_min_height,
             'fill_rows': self._cost_fill_rows
         }
-        
-        self._current_shape = None                          # Por ejemplo: np.array([])
-        self._next_shapes = []                              # Por ejemplo: [np.array([]) for _ in 5]
-        self._held_shape = None                             # Por ejemplo: np.array([])
-        self._state = np.zeros((20,10), dtype=np.int16)     # Tablero
-        self._height = 0                                    # Altura mínima en las columnas
         self._cost = cost_strategies[cost_strategy]         # Método de cálculo de costo
+        
+        self._current_shape = None                          # Por ejemplo: array([])
+        self._next_shapes = []                              # Por ejemplo: [array([]) for _ in 5]
+        self._held_shape = None                             # Por ejemplo: array([])
+        self._state = zeros((20,10), dtype=int16)     # Tablero
+        self._height = 0                                    # Altura mínima en las columnas
 
 
     def _square(self, shape):
@@ -74,7 +73,7 @@ class TetrisPlayer:
         Rota la figura pasada como argumento (matriz)
         90 grados en sentido horario.
         """
-        return np.rot90(shape, -1)
+        return rot90(shape, -1)
 
 
     def _collision(self, shape, row, col):
@@ -119,7 +118,7 @@ class TetrisPlayer:
 
         while row < max_height:
             # Fila completa.
-            if np.all(state[row] != 0):
+            if all(state[row] != 0):
                 killed_rows += 1
 
                 # Bajar todo lo superior.
@@ -131,10 +130,13 @@ class TetrisPlayer:
             else:
                 row += 1
 
+        if max_height == 0:
+            return state, 0, killed_rows
+
         # Índice de la celda ocupada más alta por columna.
-        heights = np.where(
+        heights = where(
             state[:max_height] != 0,
-            np.arange(max_height)[:, None],
+            arange(max_height)[:, None],
             -1
         ).max(axis=0)
 
@@ -184,7 +186,7 @@ class TetrisPlayer:
                 range(4 - column) if self._square(shape)
                 else range(3 - column))] +
                 [self.actions[self.RIGHT] for _ in (
-                range(3 - (10 - shape.shape[1] - column)) if self._h_line(shape)
+                range(3 - (10 - shape.shape[1] - column)) if self._line(shape)
                 else range(4 - (10 - shape.shape[1] - column)))]
             )
 
@@ -237,7 +239,7 @@ class TetrisPlayer:
 
                     if not collision:
                         new_state, new_min_heigt, new_cost = (
-                            self._cost(state, height + shape.shape[0])
+                            self._cost(new_state, height + shape.shape[0])
                         )
                         
                         # Se mantiene el futuro de menor costo.
@@ -259,12 +261,15 @@ class TetrisPlayer:
         return state, min_height, actions, cost
 
 
-    def main_compute(self, perception):
+    def _main_compute(self, perception):
         """
         Método principal que recibe una lista de figuras nuevas a considerar y devuelve 
         las acciones para llegar al siguiente estado ideal, llevando el estado interno,
         ignorando el caso inicial donde el espacio de hold está vacío.
         """
+        if any(x is None for x in perception):
+            return []
+        
         self._next_shapes += perception
         self._current_shape = self._next_shapes.pop(0)
 
@@ -292,6 +297,9 @@ class TetrisPlayer:
         Método principal que recibe una lista de figuras nuevas a considerar y devuelve 
         las acciones para llegar al siguiente estado ideal, llevando el estado interno.
         """
+        if any(x is None for x in perception):
+            return []
+        
         self._next_shapes += perception     # El ambiente (sensor-actuador) pasaría inicialmente las 5 
                                             # primeras figuras, luego, solo la última de las 5 que vienen 
                                             # (la nueva), a excepción de tras el primer hold, donde pasa 
@@ -323,8 +331,7 @@ class TetrisPlayer:
         
         if not self._held_shape:
             self._next_shapes.pop(0)
-            self.compute = self.main_compute
+            self.compute = self._main_compute
         
         self._held_shape = self._current_shape
         return [self.actions[self.HOLD]] + hold_actions
-

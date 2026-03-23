@@ -1,51 +1,25 @@
-from numpy import array
+from numpy import array, int16
 
 class Pieces:
     def __init__(self):
-
+        
+        # La simulación se hace espejada horizontalmente
         self.PIECES = {
 
-            'turquoise': [          # I
-                array([[1,1,1,1]]),         # 0 — base: horizontal
-                array([[1],[1],[1],[1]])     # 1 — vertical
-            ],
+            'turquoise': array([[1,1,1,1]], dtype=int16),       # I
 
-            'yellow': [             # O
-                array([[1,1],[1,1]])         # 0 — única orientación
-            ],
+            'yellow': array([[1,1],[1,1]], dtype=int16),        # O
 
-            'rose': [               # T
-                array([[0,1,0],[1,1,1]]),    # 0 — base: punta arriba
-                array([[1,0],[1,1],[1,0]]),  # 1 — giro der: punta derecha
-                array([[1,1,1],[0,1,0]]),    # 2 — giro 180: punta abajo
-                array([[0,1],[1,1],[0,1]])   # 3 — giro izq: punta izquierda
-            ],
+            'rose': array([[1,1,1],[0,1,0]], dtype=int16),      # T
 
-            'green': [              # S
-                array([[0,1,1],[1,1,0]]),    # 0 — base: diagonal
-                array([[1,0],[1,1],[0,1]])   # 1 — vertical
-            ],
+            'green': array([[1,1,0],[0,1,1]], dtype=int16),     # S
 
-            'red': [                # Z
-                array([[1,1,0],[0,1,1]]),    # 0 — base: diagonal
-                array([[0,1],[1,1],[1,0]])   # 1 — vertical
-            ],
+            'red': array([[0,1,1],[1,1,0]], dtype=int16),       # Z
 
-            'orange': [             # L
-                array([[0,0,1],[1,1,1]]),    # 0 — base: pico arriba-derecha
-                array([[1,0],[1,0],[1,1]]),  # 1 — giro der: pie abajo-derecha
-                array([[1,1,1],[1,0,0]]),    # 2 — giro 180: pico abajo-izquierda
-                array([[1,1],[0,1],[0,1]])   # 3 — giro izq: pie arriba-izquierda
-            ],
+            'orange': array([[1,1,1],[0,0,1]], dtype=int16),    # L
 
-            'blue': [               # J
-                array([[1,0,0],[1,1,1]]),    # 0 — base: pico arriba-izquierda
-                array([[1,1],[1,0],[1,0]]),  # 1 — giro der: pie arriba-izquierda
-                array([[1,1,1],[0,0,1]]),    # 2 — giro 180: pico abajo-derecha
-                array([[0,1],[0,1],[1,1]])   # 3 — giro izq: pie abajo-derecha
-            ],
+            'blue': array([[1,1,1],[1,0,0]], dtype=int16)       # J
         }
 
-    def get(self, color, rotation=0):
-        orientations = self.PIECES[color]
-        return orientations[rotation % len(orientations)]
+    def get(self, color):
+        return self.PIECES.get(color)

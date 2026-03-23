@@ -1,8 +1,10 @@
 from cv2 import cvtColor, COLOR_BGRA2BGR, COLOR_BGR2HSV
+from .pieces import Pieces
+
 class PieceDetector:
 
     def __init__(self):
-        self.tolerance = 4
+        self.tolerance = 10
         self.colors = {
             'red' : 356,
             'yellow' : 48,
@@ -12,6 +14,7 @@ class PieceDetector:
             'turquoise' : 158,
             'rose' : 305
         }
+        self.pieces = Pieces()
 
     def _convert_to_hsv(self, image):
         bgr = cvtColor(image, COLOR_BGRA2BGR)
@@ -39,10 +42,10 @@ class PieceDetector:
             
             h = int(hsv_img[y, x_center, 0])
 
-            if (not is_in_piece and h == 0) or is_in_piece and h != 0:
-                pass
+            # if (not is_in_piece and h == 0) or is_in_piece and h != 0:
+            #     pass
 
-            elif not is_in_piece and h != 0:
+            if not is_in_piece and h != 0:
                 is_in_piece = True
                 color = self.look4color(h)
                 detections.append(color)
@@ -53,4 +56,4 @@ class PieceDetector:
             if len(detections) == 5:
                 break
         
-        return detections
+        return list(map(self.pieces.get, detections))
