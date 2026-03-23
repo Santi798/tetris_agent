@@ -1,5 +1,5 @@
 from .keys_controller import KeysController
-from time import sleep
+
 
 class TetrActuator:
 
@@ -57,13 +57,11 @@ class TetrActuator:
     def main_act(self, actions):    # Sin revisión de hold.
         for action in actions:
             self.ACTIONS.get(action)()
-            sleep(0.2)          ##### DEBUG #####
 
     def act(self, actions):
         self._flag = False
         for action in actions:
             self.ACTIONS.get(action)()
-            sleep(0.2)          ##### DEBUG #####
         return self._flag
     
     def ignore_hold(self):          # Llamada desde el env

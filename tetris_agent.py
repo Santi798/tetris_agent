@@ -16,7 +16,7 @@ Incluye manejo de:
 - Estrategia de llenado de filas bajas.
 """
 
-from numpy import zeros, rot90, all, where, arange, int16
+from numpy import zeros, rot90, all, where, arange, sum, int16
 from numpy import any as np_any
 
 
@@ -160,14 +160,19 @@ class TetrisPlayer:
         return state, new_min_height, max_height - killed_rows
     
 
-    def _cost_fill_rows(self, state, max_height):   ########## TODO: todo (sin implementar aún jaja) ##########
+    def _cost_fill_rows(self, state, max_height):
         """
         Cálcula el costo del futuro dado, en función del tamaño de las
         filas que coinciden con la posición del agente.
         """
+        weights = [0]
+
+        cost = 0
+        for row in range(max_height):
+            cost -= sum(state[row]) * 2 ** (-row)
+
         state, new_min_height, killed_rows = self._kill_rows(state, max_height)
-        # for...
-        cost = None
+        cost -= killed_rows * 10
         return state, new_min_height, cost
 
 
@@ -247,7 +252,7 @@ class TetrisPlayer:
                         new_state, new_min_heigt, new_cost = (
                             self._cost(new_state, height + shape.shape[0])
                         )
-                        
+
                         # Se mantiene el futuro de menor costo.
                         if new_cost < cost:
                             found = True
@@ -346,13 +351,13 @@ class TetrisPlayer:
 
 if __name__ == "__main__":
     from numpy import array
-    agent = TetrisPlayer()
-    figs = [array([[1,1,1],[0,0,1]], dtype=int16),
-            array([[1,1,1],[0,0,1]], dtype=int16),
-            array([[1,1,1],[0,0,1]], dtype=int16),
-            array([[1,1,1],[0,0,1]], dtype=int16),
-            array([[1,1,1],[0,0,1]], dtype=int16)]
+    agent = TetrisPlayer('fill_rows')
+    figs = [array([[1,1,1,1]], dtype=int16),
+            array([[1,1,1,1]], dtype=int16),
+            array([[1,1,1,1]], dtype=int16),
+            array([[1,1,1,1]], dtype=int16),
+            array([[1,1,1,1]], dtype=int16)]
     for _ in range(8):
         print(agent.compute(figs))
-        figs.append(array([[1,1,1],[0,0,1]], dtype=int16))
+        figs.append(array([[1,1,1,1]], dtype=int16))
         print(agent._state)

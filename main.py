@@ -4,7 +4,7 @@ from tetris_agent import TetrisPlayer
 
 
 def main():
-    agent = TetrisPlayer(cost_strategy='min_height')
+    agent = TetrisPlayer(cost_strategy='fill_rows')
     env = Env()
 
     # Piezas iniciales.
