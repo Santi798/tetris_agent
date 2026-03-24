@@ -16,7 +16,7 @@ Incluye manejo de:
 - Estrategia de llenado de filas bajas.
 """
 
-from numpy import zeros, rot90, all, where, arange, sum, int16
+from numpy import zeros, rot90, all, where, arange, sum, cumsum, int16
 from numpy import any as np_any
 
 
@@ -52,7 +52,8 @@ class TetrisPlayer:
         self._next_shapes = []                              # Por ejemplo: [array([]) for _ in 5]
         self._held_shape = None                             # Por ejemplo: array([])
         self._state = zeros((22,10), dtype=int16)           # Tablero
-        self._height = 0                                    # Altura mínima en las columnas
+        self._min_height = 0                                # Altura mínima en las columnas
+        self._max_height = 0                                # Altura máxima en las columnas
 
 
     def _square(self, shape):
@@ -142,7 +143,7 @@ class TetrisPlayer:
         heights = where(
             state[:max_height] != 0,
             arange(max_height)[:, None],
-            -1
+            0
         ).max(axis=0)
 
         # Elegir la altura menor.
@@ -151,28 +152,46 @@ class TetrisPlayer:
         return state, new_min_height, killed_rows
     
 
+    def _count_holes(self, state, max_height):
+        """
+        Calcula el número de huecos en el tablero hasta max_height.
+        Un hueco es un 0 que tiene un bloque por encima en su columna.
+        """
+        board = state[:max_height]
+
+        # Donde hay bloques.
+        filled = board != 0
+
+        # Indica si ya apareció algún bloque arriba.
+        seen_block_above = cumsum(filled[::-1], axis=0)[::-1] > 0
+
+        # Huecos como celdas vacías con bloque arriba.
+        holes = (~filled) & seen_block_above
+
+        return sum(holes)
+        
+
     def _cost_min_height(self, state, max_height):
         """
-        Cálcula el costo del futuro dado, en función de la altura añadida
+        Calcula el costo del futuro dado, en función de la altura añadida
         correspondiente a la figura operada, descontando filas removidas.
         """
         state, new_min_height, killed_rows = self._kill_rows(state, max_height)
-        return state, new_min_height, max_height - killed_rows
+        return state, new_min_height, max_height - killed_rows * 2 + self._count_holes(state, max_height) * 1
     
 
     def _cost_fill_rows(self, state, max_height):
         """
-        Cálcula el costo del futuro dado, en función del tamaño de las
+        Calcula el costo del futuro dado, en función del tamaño de las
         filas que coinciden con la posición del agente.
         """
-        weights = [0]
-
         cost = 0
         for row in range(max_height):
             cost -= sum(state[row]) * 2 ** (-row)
 
         state, new_min_height, killed_rows = self._kill_rows(state, max_height)
         cost -= killed_rows * 10
+        cost += self._count_holes(state, max_height) * 5
         return state, new_min_height, cost
 
 
@@ -228,12 +247,12 @@ class TetrisPlayer:
         y algún tipo de costo asociado a ese futuro.
         """
         state = self._state
-        min_height = self._height
+        min_height = self._min_height
         actions = []
         cost = self.SUPER_COST
 
         found = False
-        height = 0      # height = self._height TODO:
+        height = 0      # height = self._min_height TODO:
 
         # Recorrido por alturas si no hay candidatos.
         while height < self._state.shape[0] and not found:
@@ -293,12 +312,12 @@ class TetrisPlayer:
 
             # Sin hold.
             self._state = new_state
-            self._height = new_height
+            self._min_height = new_height
             return new_actions
         
         # Con hold.
         self._state = hold_state
-        self._height = hold_height
+        self._min_height = hold_height
         self._held_shape = self._current_shape
         return [self.actions[self.HOLD]] + hold_actions
 
@@ -333,12 +352,12 @@ class TetrisPlayer:
 
             # Sin hold.
             self._state = new_state
-            self._height = new_height
+            self._min_height = new_height
             return new_actions
         
         # Con hold.
         self._state = hold_state
-        self._height = hold_height
+        self._min_height = hold_height
         
         if not self._held_shape:
             self._next_shapes.pop(0)
