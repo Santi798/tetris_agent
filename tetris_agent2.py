@@ -1,5 +1,5 @@
 """
-TetrisPlayer: Agente que juega TETR.IO automáticamente.
+TetrisPlayer: Agente que juega TETR.IO automáticamente, llevando altura máxima.
 
 Este agente mantiene internamente el estado del tablero y las figuras 
 pendientes, calcula futuros posibles para la figura actual (y la opción 
@@ -20,7 +20,7 @@ from numpy import zeros, rot90, all, where, arange, sum, cumsum, int16
 from numpy import any as np_any
 
 
-class TetrisPlayer:
+class TetrisPlayer2:
     """
     Agente que juega Tetris (para la página TETR.IO).
     """
@@ -53,6 +53,7 @@ class TetrisPlayer:
         self._held_shape = None                             # Por ejemplo: array([])
         self._state = zeros((22,10), dtype=int16)           # Tablero
         self._min_height = 0                                # Altura mínima en las columnas
+        self._max_height = 1                                # Altura máxima en las columnas
 
 
     def _square(self, shape):
@@ -135,20 +136,18 @@ class TetrisPlayer:
             else:
                 row += 1
 
-        if max_height == 0:
-            return state, 0, killed_rows
-
         # Índice de la celda ocupada más alta por columna.
         heights = where(
-            state[:max_height] != 0,
-            arange(max_height)[:, None],
+            state[:self._max_height] != 0,
+            arange(self._max_height)[:, None],
             0
         ).max(axis=0)
 
         # Elegir la altura menor.
         new_min_height = heights.min()
+        new_max = heights.max() + 2
 
-        return state, new_min_height, killed_rows
+        return state, new_min_height, new_max, killed_rows
     
 
     def _count_holes(self, state, max_height):
@@ -156,10 +155,10 @@ class TetrisPlayer:
         Calcula el número de huecos en el tablero hasta max_height.
         Un hueco es un 0 que tiene un bloque por encima en su columna.
         """
-        board = state[:max_height]
+        state = state[:max_height]
 
         # Donde hay bloques.
-        filled = board != 0
+        filled = state != 0
 
         # Indica si ya apareció algún bloque arriba.
         seen_block_above = cumsum(filled[::-1], axis=0)[::-1] > 0
@@ -175,8 +174,8 @@ class TetrisPlayer:
         Calcula el costo del futuro dado, en función de la altura añadida
         correspondiente a la figura operada, descontando filas removidas.
         """
-        state, new_min_height, killed_rows = self._kill_rows(state, max_height)
-        return state, new_min_height, max_height - killed_rows * 2 + self._count_holes(state, max_height) * 1
+        state, new_min_height, new_max, killed_rows = self._kill_rows(state, max_height)
+        return state, new_min_height, new_max, max_height - killed_rows * 4 + self._count_holes(state, max_height) * 3
     
 
     def _cost_fill_rows(self, state, max_height):
@@ -188,10 +187,10 @@ class TetrisPlayer:
         for row in range(max_height):
             cost -= sum(state[row]) * 2 ** (-row)
 
-        state, new_min_height, killed_rows = self._kill_rows(state, max_height)
-        cost -= killed_rows * 10
-        cost += self._count_holes(state, max_height) * 5
-        return state, new_min_height, cost
+        state, new_min_height, new_max, killed_rows = self._kill_rows(state, max_height)
+        cost -= killed_rows * 20
+        cost += self._count_holes(state, max_height) * 15
+        return state, new_min_height, new_max, cost
 
 
     def _calculate_actions(self, shape, column, rotation):
@@ -247,14 +246,12 @@ class TetrisPlayer:
         """
         state = self._state
         min_height = self._min_height
+        max_height = self._max_height
         actions = []
         cost = self.SUPER_COST
 
-        found = False
-        height = 0      # height = self._min_height TODO:
-
         # Recorrido por alturas si no hay candidatos.
-        while height < self._state.shape[0] and not found:
+        for height in range(self._min_height, self._max_height):
             column = 0
 
             # Prueba en todas las columnas.
@@ -267,16 +264,15 @@ class TetrisPlayer:
                     collision, new_state = self._collision(shape, height, column)
 
                     if not collision:
-                        new_state, new_min_heigt, new_cost = (
+                        new_state, new_min_heigt, new_max, new_cost = (
                             self._cost(new_state, height + shape.shape[0])
                         )
 
                         # Se mantiene el futuro de menor costo.
                         if new_cost < cost:
-                            found = True
-
                             state = new_state
                             min_height = new_min_heigt
+                            max_height = new_max
                             actions = self._calculate_actions(shape, column, rotation)
                             cost = new_cost
 
@@ -285,9 +281,7 @@ class TetrisPlayer:
 
                 column += 1
 
-            height += 1
-
-        return state, min_height, actions, cost
+        return state, min_height, max_height, actions, cost
 
 
     def _main_compute(self, perception):
@@ -303,8 +297,8 @@ class TetrisPlayer:
         self._current_shape = self._next_shapes.pop(0)
 
         # Cálculo de futuros para figura actual y la obtenida al hacer hold.
-        new_state, new_height, new_actions, cost = self._calculate_best_future(self._current_shape)
-        hold_state, hold_height, hold_actions, hold_cost = self._calculate_best_future(self._held_shape)
+        new_state, new_height, new_max, new_actions, cost = self._calculate_best_future(self._current_shape)
+        hold_state, hold_height, hold_max, hold_actions, hold_cost = self._calculate_best_future(self._held_shape)
 
         # Retorno de las mejores acciones, actualizando estado interno.
         if hold_cost >= cost:
@@ -312,11 +306,13 @@ class TetrisPlayer:
             # Sin hold.
             self._state = new_state
             self._min_height = new_height
+            self._max_height = new_max
             return new_actions
         
         # Con hold.
         self._state = hold_state
         self._min_height = hold_height
+        self._max_height = hold_max
         self._held_shape = self._current_shape
         return [self.actions[self.HOLD]] + hold_actions
 
@@ -343,8 +339,8 @@ class TetrisPlayer:
             hold_shape = self._next_shapes[0].copy()
 
         # Cálculo de futuros para figura actual y la obtenida al hacer hold.
-        new_state, new_height, new_actions, cost = self._calculate_best_future(self._current_shape)
-        hold_state, hold_height, hold_actions, hold_cost = self._calculate_best_future(hold_shape)
+        new_state, new_height, new_max, new_actions, cost = self._calculate_best_future(self._current_shape)
+        hold_state, hold_height, hold_max, hold_actions, hold_cost = self._calculate_best_future(hold_shape)
 
         # Retorno de las mejores acciones, actualizando estado interno.
         if hold_cost >= cost:
@@ -352,11 +348,13 @@ class TetrisPlayer:
             # Sin hold.
             self._state = new_state
             self._min_height = new_height
+            self._max_height = new_max
             return new_actions
         
         # Con hold.
         self._state = hold_state
         self._min_height = hold_height
+        self._max_height = hold_max
         
         if not self._held_shape:
             self._next_shapes.pop(0)
@@ -364,18 +362,3 @@ class TetrisPlayer:
         
         self._held_shape = self._current_shape
         return [self.actions[self.HOLD]] + hold_actions
-
-
-
-if __name__ == "__main__":
-    from numpy import array
-    agent = TetrisPlayer('fill_rows')
-    figs = [array([[1,1,1,1]], dtype=int16),
-            array([[1,1,1,1]], dtype=int16),
-            array([[1,1,1,1]], dtype=int16),
-            array([[1,1,1,1]], dtype=int16),
-            array([[1,1,1,1]], dtype=int16)]
-    for _ in range(8):
-        print(agent.compute(figs))
-        figs.append(array([[1,1,1,1]], dtype=int16))
-        print(agent._state)

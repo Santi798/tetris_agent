@@ -1,11 +1,19 @@
 from time import sleep
 from tetr_env import Env
 from tetris_agent import TetrisPlayer
+from tetris_agent2 import TetrisPlayer2
+
+
+N_IMAGES = 8
+TETRIS_PLAYER = TetrisPlayer2
+
+FILL_R_COST = 'fill_rows'
+MIN_H_COST = 'min_height'
 
 
 def main():
-    agent = TetrisPlayer(cost_strategy='fill_rows')
-    env = Env()
+    agent = TETRIS_PLAYER(cost_strategy=FILL_R_COST)
+    env = Env(n_images=N_IMAGES)
 
     # Piezas iniciales.
     percept = env.act_and_sense([], last_n=5)
@@ -20,10 +28,11 @@ def main():
     while act:  # len(act) > 0
         percept = env.act_and_sense(act)
         act = agent.compute(percept)
-        print(agent._state)     ##### DEBUG #####
     print(f"¡El agente {agent.__class__.__name__} se ha detenido!")
 
-    ### TODO: Tomar captura del score final ###
+    # Mostrar puntaje final
+    env.show_score(n_images=N_IMAGES//2)
+
 
 
 if __name__ == "__main__":
