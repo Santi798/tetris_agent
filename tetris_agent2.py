@@ -85,33 +85,26 @@ class TetrisPlayer2:
         - True si la figura colisiona con el tablero o bloques existentes
         - False si se puede colocar, y además devuelve una copia del estado con la figura puesta
         """
-        h, w = shape.shape
-        new_state = self._state.copy()  # Copia para colocar la figura
+        rs, cs = where(shape != 0)      # Posiciones no vacías de la figura
+        state_rs = row + rs
+        state_cs = col + cs
 
-        for r in range(h):
-            for c in range(w):
+        # Bounds
+        if (np_any(state_cs < 0) or np_any(state_cs >= self._state.shape[1]) or
+                np_any(state_rs < 0) or np_any(state_rs >= self._state.shape[0])):
+            return True, None
 
-                if shape[r, c] == 0:
-                    continue
+        # Colisión con bloques existentes
+        if np_any(self._state[state_rs, state_cs] != 0):
+            return True, None
 
-                state_r = row + r
-                state_c = col + c
+        # Obstáculos debajo (para drop): vectorizado por columna única
+        for r, c in zip(state_rs, state_cs):
+            if np_any(self._state[r + 1:, c] != 0):
+                return True, None
 
-                # Fuera del tablero.
-                if state_c < 0 or state_c >= self._state.shape[1] or state_r < 0 or state_r >= self._state.shape[0]:
-                    return True, None
-
-                # Colisión con bloque existente.
-                if new_state[state_r, state_c] != 0:
-                    return True, None
-
-                # Obstáculos encima para hacer drop.
-                if np_any(self._state[state_r + 1 :, state_c] != 0):
-                    return True, None
-
-                # Colocar bloque en copia del tablero.
-                new_state[state_r, state_c] = shape[r, c]
-
+        new_state = self._state.copy()
+        new_state[state_rs, state_cs] = shape[rs, cs]
         return False, new_state
 
 
