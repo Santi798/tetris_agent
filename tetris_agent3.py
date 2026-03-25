@@ -1,5 +1,5 @@
 """
-TetrisPlayer: Agente que juega TETR.IO automáticamente, llevando altura máxima.
+TetrisPlayer: Agente que juega TETR.IO automáticamente, llevando altura máxima, con bumpiness.
 
 Este agente mantiene internamente el estado del tablero y las figuras 
 pendientes, calcula futuros posibles para la figura actual (y la opción 
@@ -20,7 +20,7 @@ from numpy import zeros, rot90, all, where, arange, sum, cumsum, int16
 from numpy import any as np_any
 
 
-class TetrisPlayer2:
+class TetrisPlayer3:
     """
     Agente que juega Tetris (para la página TETR.IO).
     """
@@ -159,14 +159,11 @@ class TetrisPlayer2:
         return sum(holes)
     
 
-    def _cost_min_height(self, state, height, shape_height):
+    def _bumpiness(self, heights):
         """
-        Calcula el costo del futuro dado, en función de la altura añadida
-        correspondiente a la figura operada, descontando filas removidas.
+        Suma de diferencias absolutas entre alturas de columnas adyacentes.
         """
-        max_height = height + shape_height
-        killed_rows = self._kill_rows(state, max_height)
-        return state, max_height - killed_rows * 2 + self._count_holes(state, max_height) * 1
+        return sum(abs(heights[1:] - heights[:-1]))
     
 
     def _cost_fill_rows(self, state, height, shape_height):
@@ -276,16 +273,17 @@ class TetrisPlayer2:
                             self._cost(new_state, height, shape.shape[0])
                         )
 
+                        # Índice de la celda ocupada más alta por columna.
+                        heights = where(
+                            new_state[:self._max_height] != 0,
+                            arange(self._max_height)[:, None],
+                            0
+                        ).max(axis=0)
+                        new_cost += self._bumpiness(heights) * 3
+
                         # Se mantiene el futuro de menor costo.
                         if new_cost < cost:
                             found = True
-
-                            # Índice de la celda ocupada más alta por columna.
-                            heights = where(
-                                new_state[:self._max_height] != 0,
-                                arange(self._max_height)[:, None],
-                                0
-                            ).max(axis=0)
 
                             state = new_state
                             min_height = heights.min()

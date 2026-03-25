@@ -1,18 +1,20 @@
 from time import sleep
 from tetr_env import Env
-from tetris_agent import TetrisPlayer
-from tetris_agent2 import TetrisPlayer2
+from tetris_agent import TetrisPlayer       # OG
+from tetris_agent2 import TetrisPlayer2     # Fastest
+from tetris_agent3 import TetrisPlayer3     # Bumpiness
 
 
-N_IMAGES = 8
+N_IMAGES = 10
 TETRIS_PLAYER = TetrisPlayer2
 
-FILL_R_COST = 'fill_rows'
+FILL_R_COST = 'fill_rows'   # No disponible en TetrisPlayer3 (Bumpiness)
 MIN_H_COST = 'min_height'
+COMB_COST = 'combined'      # No disponible en TetrisPlayer (OG)
 
 
 def main():
-    agent = TETRIS_PLAYER(cost_strategy=FILL_R_COST)
+    agent = TETRIS_PLAYER(cost_strategy=COMB_COST)
     env = Env(n_images=N_IMAGES)
 
     # Piezas iniciales.
@@ -25,13 +27,14 @@ def main():
     act = agent.compute(percept)
 
     # Ciclo general: Solo última pieza.
-    while act:  # len(act) > 0
+    while len(act) > 0:
         percept = env.act_and_sense(act)
         act = agent.compute(percept)
     print(f"¡El agente {agent.__class__.__name__} se ha detenido!")
+    print(agent._state)     ### DEBUG ###
 
     # Mostrar puntaje final
-    env.show_score(n_images=N_IMAGES//2)
+    env.show_score(n_images=(N_IMAGES//2)-2)
 
 
 

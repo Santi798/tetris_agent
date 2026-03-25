@@ -57,7 +57,7 @@ class Env():
             return self._get_perception()[-last_n-1:]
     
     def show_score(self, n_images):
-        axis('off')
         for image in range(n_images):
+            axis('off')
             imshow(self.images[image])
             show()
