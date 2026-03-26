@@ -31,7 +31,6 @@ def main():
         percept = env.act_and_sense(act)
         act = agent.compute(percept)
     print(f"¡El agente {agent.__class__.__name__} se ha detenido!")
-    print(agent._state)     ### DEBUG ###
 
     # Mostrar puntaje final
     env.show_score(n_images=(N_IMAGES//2)-2)

@@ -21,9 +21,8 @@ class PieceDetector:
         return cvtColor(bgr, COLOR_BGR2HSV)
     
     def look4color(self, h):
-
         for color, hue in self.colors.items():
-            center = hue / 2  # convertir 0-360 → 0-180
+            center = hue / 2  # convertir 0-360 a 0-180
             if abs(h - center) <= self.tolerance:
                 return color
         return None
@@ -38,12 +37,10 @@ class PieceDetector:
 
         detections = []
 
-        for y in range(dims[1]):
+        for y in range(dims[1]):    # Se recorren los píxeles  centrales del recuadro
+                                    # identificando los colores.
             
             h = int(hsv_img[y, x_center, 0])
-
-            # if (not is_in_piece and h == 0) or is_in_piece and h != 0:
-            #     pass
 
             if not is_in_piece and h != 0:
                 is_in_piece = True

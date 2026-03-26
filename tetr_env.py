@@ -1,23 +1,17 @@
 from time import sleep
 from matplotlib.pyplot import imshow, axis, show
-from utilities import SetupWindow, TetrBrowser, AreaSearcher, PieceDetector, TetrActuator
+from utilities import SetupWindow, AreaSearcher, PieceDetector, TetrActuator
 
 
 class Env():
 
-    PERCEPT_WAIT = 0.05
+    PERCEPT_WAIT = 0.05     # Espera para tomar la captura tras finalizar acciones
 
     def __init__(self, n_images):
         self.images = [None for _ in range(n_images)]
-        # self._create_page()
         self._wait_for_setup()
         self._find_search_area()
         self.actuator = TetrActuator()
-        # self.index = 0
-
-    def _create_page(self):
-        self.browser = TetrBrowser()
-        self.driver = self.browser.driver
 
     def _wait_for_setup(self):
         SetupWindow()
@@ -34,8 +28,6 @@ class Env():
         self.images.pop(0)
 
         dims = self.searcher.get_box_dim()
-        # self.searcher.save(image=image, path=f"next_box{self.index}.png")
-        # self.index += 1
         return self.detector.detect(image, dims)
     
     def _execute(self, actions):

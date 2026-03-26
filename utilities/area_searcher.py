@@ -57,7 +57,7 @@ class AreaSearcher:
         search_y = None
         for y in range(center_y):
             if self._is_white(screenshot[y, search_x]):
-                search_y = y + 1
+                search_y = y + 1    # La línea superior no es totalmente recta (o blanca)
                 break
 
         if search_y is None:
@@ -127,7 +127,7 @@ class AreaSearcher:
         if image is None:
             image = self.grab_from_corner()
 
-        # mss devuelve BGRA, convertir a BGR para OpenCV
+        # mss devuelve BGRA, se convierte a BGR para OpenCV.
         if image.shape[2] == 4:
             image = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
 

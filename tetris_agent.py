@@ -251,7 +251,7 @@ class TetrisPlayer:
         cost = self.SUPER_COST
 
         found = False
-        height = 0      # height = self._min_height TODO:
+        height = 0
 
         # Recorrido por alturas si no hay candidatos.
         while height < self._state.shape[0] and not found:
